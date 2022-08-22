@@ -4,7 +4,7 @@
 ##     9-8-2022     
 #
 # 1. Put the dataset in the same folder
-# 2. open terminal and write "python3 apriori.py dataset.txt 0.8"  
+# 2. open terminal and write "python3 fp_growth.py {{../Data/dataset.txt}} {{minimum_support_percentage}}"  
 #     here dataset.txt is the dataset and 0.8 is the minimum support count
 #     other formats are also supported
 # 3. The result will be shown accordingly
@@ -13,10 +13,22 @@
 ##
 ##
 
-
 import sys, os, psutil, timeit, math
 
 total_join, total_prune = 0, 0
+
+def mock_transections():
+    # used for testing purpose
+    return [
+        ["A", "B"],
+        ["A", "B", "C"],
+        ["B"],
+        ["B", "C"],
+        ["A", "D"],
+        ["A", "D"],
+        ["C", "D"]
+    ]
+
 
 class Node:
     def __init__(self, name='root', counter=0):
@@ -39,7 +51,7 @@ class Node:
             child.print(depth + 1)
 
 
-def initial_insert(root, item_count, minimum_count):
+def first_insert(root, item_count, minimum_count):
     for item in sorted(item_count):
         if item_count[item] < minimum_count:
             global total_prune
@@ -48,7 +60,7 @@ def initial_insert(root, item_count, minimum_count):
         node = Node(name=item, counter=item_count[item])
         root.add_child(node)
     
-def generate_candidate(root):
+def find_candidate(root):
     if root.is_end():
         return
     keys = list(root.children.keys())
@@ -61,7 +73,7 @@ def generate_candidate(root):
                 global total_join
                 total_join += 1
         else:
-            generate_candidate(current_node)
+            find_candidate(current_node)
 
 def frequency_count(root, transection, left=0): 
     if root.is_end():
@@ -110,38 +122,27 @@ def apriori(transections, minimum_support):
     item_count = get_item_count(transections)
     minimum_count = math.ceil( len(transections) * minimum_support )
     root = Node()
-    batch_no = 1
+    level_no = 1
     frequent_patterns = dict()
     level_prune, level_join, level_candidates = 0, 0, 0
     while True:
-        if batch_no == 1:
-            initial_insert(root=root, item_count=item_count, minimum_count=minimum_count)
+        if level_no == 1:
+            first_insert(root=root, item_count=item_count, minimum_count=minimum_count)
         else:
-            generate_candidate(root=root)
+            find_candidate(root=root)
             database_scan(root, transections)
-            remove_non_frequent_element(root, minimum_count, batch_no, 0)
+            remove_non_frequent_element(root, minimum_count, level_no, 0)
         if root.is_end():
             break
         get_frequent_candidates(root, "", frequent_patterns)
         global total_join, total_prune
-        print("Level =", batch_no, "Join =", total_join - level_join, "Prune =", total_prune - level_prune, "Candidates =", len(frequent_patterns) - level_candidates)
+        print("Level =", level_no, "Join =", total_join - level_join, "Prune =", total_prune - level_prune, "Candidates =", len(frequent_patterns) - level_candidates)
         level_join = total_join
         level_prune = total_prune
         level_candidates = len(frequent_patterns)
-        batch_no += 1
+        level_no += 1
     return frequent_patterns
 
-def mock_transections():
-    # used for testing purpose
-    return [
-        ["A", "B"],
-        ["A", "B", "C"],
-        ["B"],
-        ["B", "C"],
-        ["A", "D"],
-        ["A", "D"],
-        ["C", "D"]
-    ]
 
 def get_transections(filename):
     data = []
